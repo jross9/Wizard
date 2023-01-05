@@ -3,7 +3,7 @@ Source-to-Source, UI, Db, and Code-Generator Tools
 
 I have spent more years and restarted this project more times than I care to admit. However, after much contemplation and hesitation, I have finally decided to give it one last try and this time, I am going to make it open-source under the AGPL v3 license.
 
-The vast majority of time spent working on this project was in C#.  However on this final attempt I will doing it in Python.  I believe that Python is the most appropriate language for this kind of project.  
+Most of the time spent on this project was using C#, but for this final iteration, I have decided to convert it to Python. I believe that Python is the most suitable language for this type of project.  
 
 ## What is it?
 
