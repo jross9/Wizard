@@ -65,7 +65,7 @@ class Folder_Tests(unittest.TestCase):
 		# -----------------------------------------
 		self.assertEqual(folder.FolderPath, folder.Sln.FolderPath + '/Folder')
 		# -----------------------------------------
-		self.assertEqual(folder.Folder, folder.Sln); # IFolder -- NULL because we don't know what we are yet ...
+		self.assertEqual(folder.Folder, folder.Sln); 
 		self.assertEqual(folder.DefNamespace, 'Solution.Folder')
 
 	def test_Folder_In_Folder(self):
@@ -92,6 +92,162 @@ class Folder_Tests(unittest.TestCase):
 		self.assertEqual(folder.FolderPath, folder.Sln.FolderPath + '/Target/Folder')
 		# -----------------------------------------
 		self.assertEqual(folder.DefNamespace, 'Target.Folder')
+
+	def test_XML_Read_File_Node(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		folder = Wiz.Folder.MAKE('Folder', sln)
+		# -----------------------------------------
+		self.assertEqual(len(folder.Files), 0)
+		# -----------------------------------------
+		node = Et.fromstring('''
+			<Folder>
+				<File ID="File.txt" />
+			</Folder>
+		''')
+		folder.ReadXML(node)
+		# -----------------------------------------
+		self.assertEqual(len(folder.Files), 1)
+		self.assertEqual(folder.Files[0].ID, 'File.txt')
+		self.assertIsInstance(folder.Files[0], Wiz.File)
+
+	def test_XML_Read_Folder_Node(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		folder = Wiz.Folder.MAKE('Folder', sln)
+		# -----------------------------------------
+		self.assertEqual(len(folder.Folders), 0)
+		# -----------------------------------------
+		node = Et.fromstring('''
+			<Folder>
+				<Folder ID="SubFolder" />
+			</Folder>
+		''')
+		folder.ReadXML(node)
+		# -----------------------------------------
+		self.assertEqual(len(folder.Folders), 1)
+		self.assertEqual(folder.Folders[0].ID, 'SubFolder')
+
+	def test_XML_Read_SubFolder_And_File_Node(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		folder = Wiz.Folder.MAKE('Folder', sln)
+		# -----------------------------------------
+		self.assertEqual(len(folder.Files), 0)
+		self.assertEqual(len(folder.Folders), 0)
+		# -----------------------------------------
+		node = Et.fromstring('''
+			<Folder>
+				<Folder ID="SubFolder">
+					<Folder ID="SubFolder2">
+						<File ID="File.txt" />
+					</Folder>
+					<File ID="File2.txt" />
+				</Folder>
+			</Folder>
+		''')
+		folder.ReadXML(node)
+		# -----------------------------------------
+		self.assertEqual(len(folder.Folders), 1)
+		self.assertEqual(folder.Folders[0].ID, 'SubFolder')
+		# -----------------------------------------
+		self.assertEqual(len(folder.Folders[0].Folders), 1)
+		fldr = folder.Folders[0].Folders[0]
+		self.assertEqual(fldr.ID, 'SubFolder2')
+		self.assertEqual(fldr.FolderPath, folder.Sln.FolderPath + '/Folder/SubFolder/SubFolder2')
+		# -----------------------------------------
+		self.assertEqual(len(folder.Folders[0].Folders[0].Files), 1)
+		file = folder.Folders[0].Folders[0].Files[0]
+		self.assertEqual(file.ID, 'File.txt')
+		self.assertEqual(file.FilePath, folder.Sln.FolderPath + '/Folder/SubFolder/SubFolder2/File.txt')
+		# -----------------------------------------
+		self.assertEqual(len(folder.Folders[0].Files), 1)
+		file = folder.Folders[0].Files[0]
+		self.assertEqual(file.ID, 'File2.txt')
+		self.assertEqual(file.FilePath, folder.Sln.FolderPath + '/Folder/SubFolder/File2.txt')
+
+	def test_XML_Write_Nodes(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		folder = Wiz.Folder.MAKE('Folder', sln)
+		Wiz.File.MAKE('File.txt', folder)
+		Wiz.Folder.MAKE('Folder', folder)
+		# -----------------------------------------
+		stream = io.StringIO()
+		writer = Xml.TextWriter(stream)
+		folder.WriteXML(writer)
+		# -----------------------------------------
+		self.assertEqual(stream.getvalue(), UT.List2Str([
+			'<Folder ID="Folder">', 
+			'\t<Folder ID="Folder" />',
+			'\t<File ID="File.txt" />',
+			'</Folder>']))
+
+# ---------------------------------------------------------------------
+# File
+# ---------------------------------------------------------------------
+class File_Tests(unittest.TestCase):
+
+	def test_ConstructorDefaults(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		file = Wiz.File.MAKE('File.txt', sln)
+		# -----------------------------------------
+		self.assertEqual(file.IsFolder, False)
+		# -----------------------------------------
+		self.assertEqual(file.ID, 'File.txt')
+		self.assertEqual(file.FileName, 'File')
+		self.assertEqual(file.FileExt, '.txt')
+		self.assertEqual(file.FilePath, file.Sln.FolderPath + '/' + file.ID)
+		self.assertEqual(file.XmlName, 'File')
+		# -----------------------------------------
+		self.assertEqual(file.FolderPath, file.Sln.FolderPath)
+		# -----------------------------------------
+		self.assertEqual(file.Folder, file.Sln) # NULL because we don't know what we are yet ...
+		self.assertEqual(file.DefNamespace, 'Solution')
+
+	def test_File_In_Folder(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		folder = Wiz.Folder.MAKE('Folder', sln)
+		file = Wiz.File.MAKE('File.txt', folder)
+		# -----------------------------------------
+		self.assertEqual(file.FolderPath, file.Sln.FolderPath + '/Folder')
+		# -----------------------------------------
+		self.assertEqual(file.Folder, folder)
+		self.assertEqual(file.DefNamespace, 'Solution.Folder')
+
+	def test_File_No_Extension(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		file = Wiz.File.MAKE('FileNoExt', sln)
+		# -----------------------------------------
+		self.assertEqual(file.ID, 'FileNoExt')
+		self.assertEqual(file.FileName, 'FileNoExt')
+		self.assertEqual(file.FileExt, '')
+
+	def test_XML_Read_Attributes(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		file = Wiz.File.MAKE('File.txt', sln)
+		# -----------------------------------------
+		node = Et.fromstring('<File Mko="Test/Test.txt" CopySource="Y" />')
+		file.ReadXML(node)
+
+	def test_XML_Write_Attributes(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		file = Wiz.File.MAKE('File.txt', sln)
+		# -----------------------------------------
+		file.MkoFilePath = 'Test/Test.txt'
+		file.CopySource = True
+		# -----------------------------------------
+		stream = io.StringIO()
+		writer = Xml.TextWriter(stream)
+		# -----------------------------------------
+		file.WriteXML(writer)
+		# -----------------------------------------
+		self.assertEqual(stream.getvalue(), '<File ID="File.txt" Mko="Test/Test.txt" />\n')
 
 # =====================================================================
 # 
