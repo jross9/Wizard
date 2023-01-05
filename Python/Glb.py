@@ -1,16 +1,10 @@
-import os
 import datetime
 import time
-import platform
+import tempfile
 
 from enum import Enum, auto
 
 import Dbg
-
-# =====================================================================
-# DELETE THIS
-# =====================================================================
-Testing123 = '--> G.Testing123'
 
 # =====================================================================
 # 
@@ -84,41 +78,11 @@ WebConfigType = Enum('WebConfigType', ['StandAlone', 'Primary', 'Debug', 'Releas
 # =====================================================================
 # 
 # =====================================================================
-Base = None
-Temp = None
-os_name = platform.system()
-# -----------------------------------------
-if os_name == 'Windows':
-	Base = 'C:/Jar'
-	Temp = 'C:/Temp'
-# -----------------------------------------
-elif os_name == 'Linux':
-	# -------------------------------------
-	if 'ANDROID_DATA' in os.environ:
-		Base = '/data/data/com.termux/files/home/storage/shared/Jar'
-		Temp = '/data/data/com.termux/cache'
-	else:
-		Base = '/home/jar'
-		Temp = '/tmp'
-# -----------------------------------------
-elif os_name == 'Darwin':
-	Base = '/Users/jar'
-	Temp = '/tmp'
-# -----------------------------------------
-else:
-	raise Exception('Undetected OS: ' + os_name)
-# -----------------------------------------
-DevBase = Base + '/Dev'
-BizBase = Base + '/Biz'
-SamplesBase = Base + '/Samples'
-# -----------------------------------------
-WizPrjDir  = Temp + '/Project'
-# -----------------------------------------
-WizDir     = DevBase + '/Wizard'
+WizDir     = '..'
+WizLogPath = WizDir + '/_countLog.txt'
 WizPyDir   = WizDir + '/Python'
-WizCSXDir   = WizDir + '/C#X'
-WizLogPath = WizDir + '/_log.txt'
 MkoDefRoot = WizPyDir + '/Templates'
+Temp       = tempfile.gettempdir()
 MkoTmpFolder = Temp + '/mako_modules'
 
 # =====================================================================
@@ -245,7 +209,7 @@ def WriteTmpFile(name, str):
 # =====================================================================
 # 
 # =====================================================================
-def LogCount(prjCode, logFlg, date_code='112022'):
+def LogCount(prjCode, logFlg, date_code='1423'):
 	# -----------------------------------------------------------------
 	f = open(WizLogPath, 'a')
 	f.write(date_code + '\t' + prjCode + '\t' + str(datetime.datetime.now()) + '\t' + logFlg + '\n')
@@ -256,14 +220,12 @@ def LogCount(prjCode, logFlg, date_code='112022'):
 # =====================================================================
 def CreateSlnAndLogIt(sln, logFlg = '-----'):
 	# -----------------------------------------------------------------
-	# t0 = time.clock()
 	t0 = time.perf_counter()
 	# -----------------------------------------------------------------
 	LogCount(sln.ID, logFlg)
 	# -----------------------------------------------------------------
 	CreateSolution(sln)
 	# -----------------------------------------------------------------
-	# Dbg.LogIt('elapsed time ' + str(time.clock() - t0))
 	Dbg.LogIt('elapsed time ' + str(time.perf_counter() - t0))
 
 # =====================================================================
