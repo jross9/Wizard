@@ -104,6 +104,26 @@ class Folder(FSNode):
 		# -----------------------------------------
 		self.IsVirtual = False
 		self.UseParentNS = False
+		# -----------------------------------------
+		self.FSNodes = []
+		# -----------------------------------------
+		self.Folders = []
+		self.FolderDict = {}
+		# -----------------------------------------
+		self.Files = []
+		self.FileDict = {}
+
+	# ---------------------------------------------
+	# STATIC METHODS
+	# ---------------------------------------------
+	@staticmethod
+	def MAKE(iD:str, parent:Folder) -> Folder:
+		# -----------------------------------------
+		folder = Folder(parent)
+		folder.SetID(iD)
+		parent.AddFolder(folder)
+		# -----------------------------------------
+		return folder
 
 	# ---------------------------------------------
 	# PROPERTIES
@@ -141,6 +161,37 @@ class Folder(FSNode):
 			else:
 				return self.Folder.Namespace + '.' + self.ID
 
+	# ---------------------------------------------
+	# METHODS
+	# ---------------------------------------------
+	def AddFolder(self, folder:Folder):
+		# -----------------------------------------
+		if (folder.Parent != self):
+			raise Exception('BAD Container Parent: ' + str(folder.Parent))
+		# -----------------------------------------
+		self.FSNodes.append(folder) # JAR_NOTE: Revisit (C#X I was not doing this)
+		# -----------------------------------------
+		self.Folders.append(folder)
+		G.SetKey(folder.ID, folder, self.FolderDict)
+
+	def AddTarget(self, tgt:Target):
+		# -----------------------------------------
+		# JAR_NOTE: this check will happen in AddFolder I can safely remove it
+		if (tgt.Parent != self):
+			raise Exception('BAD Container Parent: ' + str(tgt.Parent))
+		# -----------------------------------------
+		self.AddFolder(tgt)
+		# -----------------------------------------
+		# JAR_NOTE: Change below
+		# tgt.Sln.Targets.Add(tgt);
+		# tgt.Sln.TargetDict.Add(tgt.DottedPath, tgt);
+		# -----------------------------------------
+		sln = tgt.Sln
+		if isinstance(self, Solution):
+			sln = self
+		sln.Targets.append(tgt)
+		G.SetKey(tgt.DottedPath, tgt, sln.TargetDict)
+	
 
 # =====================================================================
 # Target
@@ -149,6 +200,41 @@ class Target(Folder):
 
 	def __init__(self, parent):
 		super().__init__(parent)
+
+	# ---------------------------------------------
+	# STATIC METHODS
+	# ---------------------------------------------
+	@staticmethod
+	def MAKE(iD:str, parent:Folder) -> Target:
+		# -----------------------------------------
+		folder = Target(parent)
+		folder.SetID(iD)
+		parent.AddTarget(folder)
+		# -----------------------------------------
+		return folder
+
+	# ---------------------------------------------
+	# PROPERTIES
+	# ---------------------------------------------
+	@property
+	def Tgt(self): 
+		return self
+
+	@property
+	def XmlName(self): 
+		return 'Target'
+	
+	@property
+	def DefNamespace(self): 
+		return self.ID
+
+	@property
+	def Namespace(self): 
+		# -----------------------------------------
+		if (self._namespace != None):
+			return self._namespace
+		else:
+			return self.ID
 
 # =====================================================================
 # Solution
@@ -171,6 +257,9 @@ class Solution(Base.Solution, Folder):
 		# -----------------------------------------
 		self.VSDefVer = G.VSVers.VS2008
 		self.FWDefVer = G.FWVers.Net35
+		# -----------------------------------------
+		self.Targets = []     # nodes
+		self.TargetDict = {}
 
 	# ---------------------------------------------
 	# STATIC METHODS
