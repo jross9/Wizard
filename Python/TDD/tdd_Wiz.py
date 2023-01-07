@@ -249,6 +249,52 @@ class File_Tests(unittest.TestCase):
 		# -----------------------------------------
 		self.assertEqual(stream.getvalue(), '<File ID="File.txt" Mko="Test/Test.txt" />\n')
 
+# ---------------------------------------------------------------------
+# Module
+# ---------------------------------------------------------------------
+class Module_Tests(unittest.TestCase):
+
+	def test_ConstructorDefaults(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		mod = Wiz.Module.MAKE('Module.xyz', sln)
+		# -----------------------------------------
+		# self.assertEqual(mod.ID, 'Module.txt')
+		# self.assertEqual(mod.XmlName, 'Module')
+		# self.assertEqual(mod.DstXmlPath, G.WizPrjDir + '/' + mod.Sln.ID + '/__wiz__/' + mod.ID + '.xml')
+		# self.assertEqual(mod.SrcXmlPath, G.WizPrjDir + '/' + mod.Sln.ID + '2/__wiz__/' + mod.ID + '.xml')
+		# -----------------------------------------
+		# mod = Wiz.Module.Create('ModNoExt', mod.Sln)
+		# self.assertEqual(mod.DstXmlPath, G.WizPrjDir + '/' + mod.Sln.ID + '/__wiz__/ModNoExt.xml')
+		# self.assertEqual(mod.SrcXmlPath, G.WizPrjDir + '/' + mod.Sln.ID + '2/__wiz__/' + mod.ID + '.xml')
+		# -----------------------------------------
+		tgt = Wiz.Target.MAKE('Target', mod.Sln)
+		mod = Wiz.Module.MAKE('Module.xyz', tgt)
+		# -----------------------------------------
+		self.assertEqual(mod.DstXmlPath, G.WizPrjDir + '/' + mod.Sln.ID + '/__wiz__/' + mod.Tgt.ID + '/' + mod.ID + '.xml')
+		self.assertEqual(mod.SrcXmlPath, G.WizPrjDir + '/' + mod.Sln.ID + '2/__wiz__/' + mod.Tgt.ID + '/' + mod.ID + '.xml')
+
+	def test_Mako_Template(self):
+		# -----------------------------------------
+		sln = Wiz.Solution.MAKE('Solution')
+		mod = Wiz.Module.MAKE('Module.txt', sln)
+		# -----------------------------------------
+		self.assertIsNone(mod.MkoFilePath)
+		self.assertIsNone(mod.S)
+		# -----------------------------------------
+		mod.MkoFilePath = 'Test/Test.txt.mako'
+		# -----------------------------------------
+		mod.CreateIt()
+		# -----------------------------------------
+		self.assertIsNotNone(mod.S.MkoTemplate)
+		# -----------------------------------------
+		sb = []
+		sb.append('Test Mako Template')
+		sb.append('Solution=Solution')
+		sb.append('ID=Module.txt!!')
+		# -----------------------------------------
+		self.assertEqual(mod.S.ToStr(), UT.List2StrSrc(mod.S, sb))
+
 # =====================================================================
 # 
 # =====================================================================
