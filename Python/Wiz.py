@@ -5,9 +5,13 @@
 # Please see README.md, LICENSE, agpl-3.0.txt in root folder
 #
 from __future__ import annotations
+from typing import List, Dict
+
 
 import os
 # import shutil
+import xml.etree.ElementTree as Et
+from llist import dllist, dllistnode
 import mako.template as Mko
 
 
@@ -16,8 +20,8 @@ import mako.template as Mko
 # =====================================================================
 import Glb as G
 import Base
-# import Dbg
-# import Xml
+import Dbg
+import Xml
 
 # =====================================================================
 # WizObj
@@ -41,7 +45,8 @@ class WizObj(Base.BaseObj):
 	# PROPERTIES
 	# ---------------------------------------------
 	@property
-	def Tgt(self): return self._tgt
+	def Tgt(self): 
+		return self._tgt
 
 	# ---------------------------------------------
 	# BUILD
@@ -52,6 +57,230 @@ class WizObj(Base.BaseObj):
 			raise Exception('BUILD ALREADY CALLED!! ' + str(self))
 		# -----------------------------------------
 		self.BuildFlg = True
+
+# =====================================================================
+# AstNode
+# =====================================================================
+class AstNode(WizObj):
+
+	NodeCount = 0
+
+	def __init__(self, parent):
+		super().__init__(parent)
+		# -----------------------------------------
+		AstNode.NodeCount += 1
+		# -----------------------------------------
+		self.Node:dllistnode = None
+		# -----------------------------------------
+		self.EmptyLine = False
+		# -----------------------------------------
+		self.EolCommment:str = None # string
+		self.EolCommentIdx = 0  # int 
+
+	# ---------------------------------------------
+	# PROPERTIES
+	# ---------------------------------------------
+	@property
+	def XmlName(self): 
+		return 'Node'
+
+	@property
+	def ParentBlock(self):
+		# -----------------------------------------
+		if (isinstance(self.Parent, AstBlock)):
+			return self.Parent
+		else:
+			return self.Parent.ParentBlock
+
+	@property
+	def ParentModule(self):
+		# -----------------------------------------
+		if (isinstance(self.Parent, Module)):
+			return self.Parent
+		else:
+			return self.Parent.ParentModule
+	
+	# ---------------------------------------------
+	# XML
+	# ---------------------------------------------
+	def WriteXML(self, writer):
+		# -----------------------------------------
+		writer.WriteStartElement(self.XmlName)
+		self.XmlWriteAttributes(writer)
+		if (self.EmptyLine):
+			writer.WriteAttributeString('EL', 'Y')
+		self.XmlWriteNodes(writer)
+		writer.WriteEndElement()
+
+	# ---------------------------------------------
+	def XmlReadAttributes(self, node):
+		super().XmlReadAttributes(node)
+		# -----------------------------------------
+		if ('EL' in node.attrib):
+			self.EmptyLine = True
+
+	def XmlWriteAttributes(self, writer):
+		super().XmlWriteAttributes(writer)
+
+	# ---------------------------------------------
+	# CREATE
+	# ---------------------------------------------
+	def Source_Code(self, S):
+		# -----------------------------------------
+		S.Code(';; Z.AstNode::Source_Code: ' + str(self))
+		# -----------------------------------------
+		for node in self.NodeList:
+			node.Source_Code(S)
+
+# ---------------------------------------------------------------------
+class AstBlock(AstNode):
+
+	def __init__(self, parent):
+		super().__init__(parent)
+		# -----------------------------------------
+		self.NodeList = dllist() # LinkedList<AstNode>
+		# -----------------------------------------
+		self.EnumTypeDict = {}
+		# -----------------------------------------
+		self.Data = []
+		self.DataDict = {}
+		# -----------------------------------------
+		self.Methods = []
+		self.MethodDict = {}
+		# -----------------------------------------
+		self.Classes = []
+		self.ClassDict = {}
+
+	# ---------------------------------------------
+	# PROPERTIES
+	# ---------------------------------------------
+	@property
+	def XmlName(self): 
+		return 'Block'
+
+	# ---------------------------------------------
+	# NEW
+	# ---------------------------------------------
+	def New_LineComment(self):
+		# -----------------------------------------
+		raise Exception('Must override New_LineComment')
+
+	# ---------------------------------------------
+	# METHODS
+	# ---------------------------------------------
+	def AddNode(self, node):
+		# -----------------------------------------
+		node.Node = self.NodeList.append(node)
+
+	def AddToContext(self, node):
+		# -----------------------------------------
+		self.AddNode(node)
+
+	def AddData(self, data):
+		# -----------------------------------------
+		self.Data.append(data)
+		G.SetKey(data.ID, data, self.DataDict)
+
+	def AddMethod(self, meth):
+		# -----------------------------------------
+		self.Methods.append(meth)
+		G.SetKey(meth.ID, meth, self.MethodDict)
+
+	def AddClass(self, cls):
+		# -----------------------------------------
+		self.Classes.append(cls)
+		G.SetKey(cls.ID, cls, self.ClassDict)
+
+	# ---------------------------------------------
+	# XML
+	# ---------------------------------------------
+	def XmlReadNode(self, node):
+		# -----------------------------------------
+		if (node.tag == 'LineComment'):
+			# -------------------------------------
+			ast = self.New_LineComment()
+			ast.ReadXML(node)
+			self.AddToContext(ast)
+		# -----------------------------------------
+		else:
+			super().XmlReadNode(node)
+
+	def XmlWriteNodes(self, writer):
+		super().XmlWriteNodes(writer)
+		# -----------------------------------------
+		for node in self.NodeList:
+			node.WriteXML(writer)
+
+# =====================================================================
+# Comments
+# =====================================================================
+# =====================================================================
+# Comments
+# =====================================================================
+class Comment(AstNode):
+
+	def __init__(self, parent):
+		super().__init__(parent)
+
+	# ---------------------------------------------
+	# PROPERTIES
+	# ---------------------------------------------
+	@property
+	def XmlName(self): 
+		return 'Comment'
+
+# ---------------------------------------------------------------------
+class LineComment(Comment):
+
+	def __init__(self, parent):
+		super().__init__(parent)
+		# -----------------------------------------
+		self.Comment:str = None
+
+	# ---------------------------------------------
+	# PROPERTIES
+	# ---------------------------------------------
+	@property
+	def XmlName(self): 
+		return 'LineComment'
+
+	# ---------------------------------------------
+	# XML Overrides
+	# ---------------------------------------------
+	def XmlReadAttributes(self, node):
+		super().XmlReadAttributes(node)
+		# -----------------------------------------
+		if ('Comment' in node.attrib):
+			self.Comment = node.attrib['Comment'] 
+
+	def XmlWriteAttributes(self, writer):
+		super().XmlWriteAttributes(writer)
+		# -----------------------------------------
+		if (self.Comment != None):
+			writer.WriteAttributeString('Comment', self.Comment)
+
+	# ---------------------------------------------
+	# CREATE
+	# ---------------------------------------------
+	def Source_Code(self, S):
+		# -----------------------------------------
+		S.Code(';; ' + str(self.Comment))
+		# -----------------------------------------
+		if (self.EmptyLine):
+			S.Blank()
+
+# ---------------------------------------------------------------------
+class BlockComment(Comment):
+
+	def __init__(self, parent):
+		super().__init__(parent)
+
+	# ---------------------------------------------
+	# PROPERTIES
+	# ---------------------------------------------
+	@property
+	def XmlName(self): 
+		return 'BlockComment'
 
 # =====================================================================
 # FSNode / File / Folder
@@ -98,6 +327,38 @@ class FSNode(Base.IDObj, WizObj):
 			return self._namespace
 		else:
 			return self.Folder.Namespace
+
+	# ---------------------------------------------
+	# XML Overrides
+	# ---------------------------------------------
+	def XmlReadAttributes(self, node):
+		super().XmlReadAttributes(node)
+		# -----------------------------------------
+		if ('Namespace' in node.attrib):
+			self._namespace = node.attrib['Namespace']
+
+	def XmlWriteAttributes(self, writer):
+		super().XmlWriteAttributes(writer)
+		# -----------------------------------------
+		if (self._namespace != None):
+			writer.WriteAttributeString('Namespace', self._namespace)
+	
+	# ---------------------------------------------
+	# CREATE
+	# ---------------------------------------------
+	def CreateIt(self):
+		# -----------------------------------------
+		if (self.CreateFlg):
+			raise Exception('Node already Created! ' + self.ID)
+		# -----------------------------------------
+		self.CreateFlg = True
+
+	def SaveIt(self):
+		# -----------------------------------------
+		if (self.SaveFlg):
+			raise Exception('Node already Saved! ' + self.ID)
+		# -----------------------------------------
+		self.SaveFlg = True
 
 # ---------------------------------------------------------------------
 class File(FSNode):
@@ -174,7 +435,7 @@ class File(FSNode):
 	def InitSource(self):
 		# -------------------------------------
 		self.S = self.NewSource()
-		self.S.FilePath = self.DstFilePath
+		self.S.FilePath = self.FilePath
 
 	def MakoSource(self, ctx) -> Base.MakoSource:
 		# -------------------------------------
@@ -326,6 +587,15 @@ class Folder(FSNode):
 		else:
 			return self.Folder.FolderPath + '/' + self.ID
 
+	# ---------------------------------------------
+	@property
+	def XmlFolderPath(self): 
+		# -----------------------------------------
+		if (self.IsVirtual):
+			return self.Folder.XmlFolderPath
+		else:
+			return self.Folder.XmlFolderPath + '/' + self.ID
+
 	@property
 	def DefNamespace(self): 
 		# -----------------------------------------
@@ -372,6 +642,21 @@ class Folder(FSNode):
 		# -----------------------------------------
 		self.Folders.append(folder)
 		G.SetKey(folder.ID, folder, self.FolderDict)
+
+	def AddModule(self, mod:Module):
+		# -----------------------------------------
+		self.AddFile(mod)
+		# -----------------------------------------
+		if (isinstance(self, Target) or 
+		    isinstance(self, Solution)):
+			fldr = self
+		elif (self.Tgt != None):
+			fldr = self.Tgt
+		else:
+			fldr = self.Sln
+		# -----------------------------------------
+		fldr.Modules.append(mod)
+		G.SetKey(mod.FilePath, mod, fldr.ModuleDict)
 
 	def AddTarget(self, tgt:Target):
 		# -----------------------------------------
@@ -421,10 +706,10 @@ class Folder(FSNode):
 		#	import C.Cpp
 		#	C.Cpp.Target.XmlReadNodes(node, self) 
 		# -----------------------------------------
-		#elif (node.tag.startswith('CSharp.')):
-		#	# -------------------------------------
-		#	import CS
-		#	CS.Target.XmlReadNodes(node, self) 
+		elif (node.tag.startswith('CSharp.')):
+			# -------------------------------------
+			import CS
+			CS.Target.XmlReadNodes(node, self) 
 		# -----------------------------------------
 		#elif (node.tag.startswith('PyAST.')):
 		#	# -------------------------------------
@@ -454,12 +739,163 @@ class Folder(FSNode):
 			nodes.WriteXML(writer)
 
 # =====================================================================
+# Module
+# =====================================================================
+class Module(File, AstBlock):
+
+	def __init__(self, parent):
+		super().__init__(parent)
+		# -----------------------------------------
+		self.SeparateXmlFile = False 
+		# -----------------------------------------
+		# self.HaxeModule = None
+
+	# ---------------------------------------------
+	# PROPERTIES
+	# ---------------------------------------------
+	@property
+	def Lang(self): 
+		return G.Lang.NA
+
+	@property
+	def XmlName(self): 
+		return 'Module'
+
+	@property
+	def XmlPath(self):
+		# -----------------------------------------
+		return self.Folder.XmlFolderPath + '/' + self.ID + '.xml'
+
+	# ---------------------------------------------
+	# XML 
+	# ---------------------------------------------
+	def ReadXML(self, node):
+		# -----------------------------------------
+		self.XmlReadAttributes(node)
+		self.ReadXmlFile()
+
+	def WriteXML(self, writer):
+		# -----------------------------------------
+		writer.WriteStartElement(self.XmlName)
+		self.XmlWriteAttributes(writer)
+		self.WriteXmlFile()
+		writer.WriteEndElement()
+
+	# ---------------------------------------------
+	# XML Doc
+	# ---------------------------------------------
+	def ReadXmlFile(self):
+		# -----------------------------------------
+		if (not os.path.exists(self.SrcXmlPath)):
+			Dbg.Warn('Project XML File Not Found: ' + self.SrcXmlPath)
+			return
+		# -----------------------------------------
+		tree = Et.ElementTree()
+		tree.parse(self.SrcXmlPath)
+		root = tree.getroot()
+		# -----------------------------------------
+		for subnode in root:
+			self.XmlReadNode(subnode);
+
+	def WriteXmlFile(self):
+		# -----------------------------------------
+		if (not os.path.exists(self.Folder.XmlFolderPath)):
+			os.makedirs(self.Folder.XmlFolderPath)
+		# -----------------------------------------
+		stream = open(self.DstXmlPath, 'wt')
+		writer = Xml.TextWriter(stream)
+		writer.WriteStartElement(self.XmlName)
+		writer.WriteAttributeString('ID', self.ID)
+		self.XmlWriteNodes(writer)
+		writer.WriteEndElement()
+		stream.close()
+
+	# ---------------------------------------------
+	# XML Overrides
+	# ---------------------------------------------
+	def XmlReadAttributes(self, node):
+		super().XmlReadAttributes(node)
+		# -----------------------------------------
+		#if ('XPrj' in node.attrib):
+		#	xPrjStr = node.attrib['XPrj']
+		#	self.XPrj = self.Sln.ProjectDict[xPrjStr]
+		# -----------------------------------------
+		pass
+
+	def XmlWriteAttributes(self, writer):
+		super().XmlWriteAttributes(writer)
+		# -----------------------------------------
+		#if (self.XPrj != None):
+		#	writer.WriteAttributeString('XPrj', self.XPrj.PyNS)
+		# -----------------------------------------
+		pass
+
+	# ---------------------------------------------
+	# BUILD
+	# ---------------------------------------------
+	def BuildTarget(self, xObj:WizObj=None):
+		super().BuildTarget(xObj)
+		# -----------------------------------------
+		# X.Print ('Wiz.Module::BuildTarget ' + str(xObj))
+		# -----------------------------------------
+		pass
+
+	# ---------------------------------------------
+	# CREATE
+	# ---------------------------------------------
+	def SetMkoAttribs(self):
+		super().SetMkoAttribs()
+		# -------------------------------------
+		self.S.MkoAttribs['mod'] = self
+
+	def Source_Code(self, S):
+		# -----------------------------------------
+		for node in self.NodeList:
+			node.Source_Code(S)
+
+	def CreateIt(self):
+		super().CreateIt()
+
+	def SaveIt(self):
+		super().SaveIt()
+
+	# ---------------------------------------------
+	# STATIC METHODS
+	# ---------------------------------------------
+	@staticmethod
+	def MAKE(iD:str, parent:Folder, copySource=False, mko:str=None) -> Module:
+		# -----------------------------------------
+		mod = Module(parent)
+		mod.SetID(iD)
+		parent.AddModule(mod)
+		mod.CopySource = copySource
+		mod.MkoFilePath = mko or mod.MkoFilePath
+		# -----------------------------------------
+		return mod
+
+# =====================================================================
 # Target
 # =====================================================================
 class Target(Folder):
 
 	def __init__(self, parent):
 		super().__init__(parent)
+		# -----------------------------------------
+		self.Modules:List[Module] = []
+		self.ModuleDict:Dict[str, Module] = {}
+		# -----------------------------------------
+		self.Guid = None
+		# -----------------------------------------
+		self.DbgMsgs = False
+		self.UseDirectDB = False
+		self.UseCfg = False
+		# -----------------------------------------
+		self.PrivPrefix = '_'
+		self.CtrlPrefix = 'Ctrl'
+		self.ViewPrefix = 'UI'
+		# -----------------------------------------
+		self.PrivBegLC = True  # can't remember what these are?
+		self.PubBegLC = False
 
 	# ---------------------------------------------
 	# STATIC METHODS
@@ -496,6 +932,30 @@ class Target(Folder):
 		else:
 			return self.ID
 
+	def XmlWriteAttributes(self, writer):
+		super().XmlWriteAttributes(writer)
+		# -----------------------------------------
+		# if (self.Prj != None):
+		#	writer.WriteAttributeString('Project', self.Prj.ID)
+		# -----------------------------------------
+		writer.WriteAttributeNewLine()
+		# -----------------------------------------
+		if (self.Guid != None):
+			writer.WriteAttributeString('Guid', str(self.Guid).upper())
+		# -----------------------------------------
+		writer.WriteAttributeNewLine()
+		# -----------------------------------------
+		if (self.DbgMsgs):
+			writer.WriteAttributeString('DbgMsgs', 'Y')
+		# -----------------------------------------
+		if (self.PrivPrefix != '_'):
+			writer.WriteAttributeString('PrivPrefix', self.PrivPrefix)
+		# -----------------------------------------
+		if (self.CtrlPrefix != 'Ctrl'):
+			writer.WriteAttributeString('CtrlPrefix', self.CtrlPrefix)
+		# -----------------------------------------
+		if (self.ViewPrefix != 'UI'):
+			writer.WriteAttributeString('ViewPrefix', self.ViewPrefix)
 # =====================================================================
 # Solution
 # =====================================================================
@@ -518,8 +978,11 @@ class Solution(Base.Solution, Folder):
 		self.VSDefVer = G.VSVers.VS2008
 		self.FWDefVer = G.FWVers.Net35
 		# -----------------------------------------
-		self.Targets = []     # nodes
-		self.TargetDict = {}
+		self.Modules:List[Module] = []
+		self.ModuleDict:Dict[str, Module] = {}
+		# -----------------------------------------
+		self.Targets:List[Target] = []     # nodes
+		self.TargetDict:Dict[str, Target] = {}
 
 	# ---------------------------------------------
 	# STATIC METHODS
@@ -553,6 +1016,12 @@ class Solution(Base.Solution, Folder):
 		else:
 			return self.Folder.FolderPath + '/' + self.ID
 
+	# ---------------------------------------------
+	@property
+	def XmlFolderPath(self): 
+		# -----------------------------------------
+		return self.FolderPath + '/__wiz__'
+
 	@property
 	def DefNamespace(self): 
 		# -----------------------------------------
@@ -585,3 +1054,80 @@ class Solution(Base.Solution, Folder):
 		# -----------------------------------------
 		return self.FolderPath + '/' + self.ID + '.xml'
 
+	# ---------------------------------------------
+	# XML Doc
+	# ---------------------------------------------
+	def ReadXmlFile(self):
+		# -----------------------------------------
+		if (not os.path.exists(self.XmlPath)):
+			Dbg.Warn('File does not exist: ' + self.XmlPath)
+			return
+		# -----------------------------------------
+		tree = Et.ElementTree()
+		tree.parse(self.XmlPath)
+		root = tree.getroot()
+		# -----------------------------------------
+		self.ReadXML(root)
+
+	def WriteXmlFile(self):
+		# -----------------------------------------
+		fldr = self.XmlFolderPath
+		if (not os.path.exists(fldr)):
+			os.makedirs(fldr)
+		# -----------------------------------------
+		stream = open(self.XmlPath, 'wt', encoding='utf-8-sig')
+		writer = Xml.TextWriter(stream)
+		self.WriteXML(writer)
+		stream.close()
+
+	# ---------------------------------------------
+	# XML Overrides
+	# ---------------------------------------------
+	def XmlReadAttributes(self, node):
+		super().XmlReadAttributes(node)
+		# -----------------------------------------
+		if ('VS' in node.attrib):
+			self.VSDefVer = G.VSVers[node.attrib['VS']]
+		# -----------------------------------------
+		if ('FW' in node.attrib):
+			self.FWDefVer = G.FWVers[node.attrib['FW']]
+
+	def XmlReadNode(self, node):
+		# -----------------------------------------
+		if (node.tag == 'Database'):
+			# -------------------------------------
+			import Db
+			# -------------------------------------
+			db = Db.Database(self)
+			db.ReadXML(node)
+			self.AddDatabase(db)
+		# -----------------------------------------
+		elif (node.tag == 'DbServer'):
+			# -------------------------------------
+			import Db
+			# -------------------------------------
+			dbSvr = Db.Server(self)
+			dbSvr.ReadXML(node)
+			self.AddDbServer(dbSvr)
+		# -----------------------------------------
+		# elif (node.tag == 'PrjFolder'):
+		#	# -------------------------------------
+		#	self.PrjFolder = X.PrjFolder(self)
+		#	Dbg.LogIt('# = ReadXML Projects ==> in Solution')
+		#	self.PrjFolder.ReadXML(node)
+		# -----------------------------------------
+		else:
+			super().XmlReadNode(node)
+
+	def XmlWriteNodes(self, writer):
+		# -----------------------------------------
+		# for db in self.Databases:
+		#	db.WriteXML(writer)
+		# -----------------------------------------
+		# for dbSvr in self.DbServers:
+		#	dbSvr.WriteXML(writer)
+		# -----------------------------------------
+		# if (self.PrjFolder != None):
+		#	self.PrjFolder.WriteXML(writer)
+		# -----------------------------------------
+		super().XmlWriteNodes(writer)

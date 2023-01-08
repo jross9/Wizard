@@ -4,6 +4,7 @@
 # Released under the GNU AFFERO GENERAL PUBLIC LICENSE Version 3
 # Please see README.md, LICENSE, agpl-3.0.txt in root folder
 #
+import os
 import datetime
 import time
 import tempfile
@@ -84,7 +85,7 @@ WebConfigType = Enum('WebConfigType', ['StandAlone', 'Primary', 'Debug', 'Releas
 # =====================================================================
 # 
 # =====================================================================
-WizDir     = '..'
+WizDir     = os.path.abspath('..')
 WizLogPath = WizDir + '/_countLog.txt'
 WizPyDir   = WizDir + '/Python'
 MkoDefRoot = WizPyDir + '/Templates'
