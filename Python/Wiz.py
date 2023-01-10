@@ -786,12 +786,12 @@ class Module(File, AstBlock):
 	# ---------------------------------------------
 	def ReadXmlFile(self):
 		# -----------------------------------------
-		if (not os.path.exists(self.SrcXmlPath)):
-			Dbg.Warn('Project XML File Not Found: ' + self.SrcXmlPath)
+		if (not os.path.exists(self.XmlPath)):
+			Dbg.Warn('Project XML File Not Found: ' + self.XmlPath)
 			return
 		# -----------------------------------------
 		tree = Et.ElementTree()
-		tree.parse(self.SrcXmlPath)
+		tree.parse(self.XmlPath)
 		root = tree.getroot()
 		# -----------------------------------------
 		for subnode in root:
@@ -802,7 +802,7 @@ class Module(File, AstBlock):
 		if (not os.path.exists(self.Folder.XmlFolderPath)):
 			os.makedirs(self.Folder.XmlFolderPath)
 		# -----------------------------------------
-		stream = open(self.DstXmlPath, 'wt')
+		stream = open(self.XmlPath, 'wt')
 		writer = Xml.TextWriter(stream)
 		writer.WriteStartElement(self.XmlName)
 		writer.WriteAttributeString('ID', self.ID)
@@ -978,6 +978,13 @@ class Solution(Base.Solution, Folder):
 		self.VSDefVer = G.VSVers.VS2008
 		self.FWDefVer = G.FWVers.Net35
 		# -----------------------------------------
+		self.Database = None    # primary DB
+		self.Databases = []     # Db list
+		self.DatabaseDict = {}  # Db dictionary
+		# -----------------------------------------
+		self.DbServers = []     # Db Servers
+		self.DbServerDict = {}  # Db Servers dictionary
+		# -----------------------------------------
 		self.Modules:List[Module] = []
 		self.ModuleDict:Dict[str, Module] = {}
 		# -----------------------------------------
@@ -1053,6 +1060,22 @@ class Solution(Base.Solution, Folder):
 	def XmlPath(self):
 		# -----------------------------------------
 		return self.FolderPath + '/' + self.ID + '.xml'
+
+	# ---------------------------------------------
+	# METHODS
+	# ---------------------------------------------
+	def AddDatabase(self, db):
+		# -----------------------------------------
+		if (self.Database == None):
+			self.Database = db
+		# -----------------------------------------
+		self.Databases.append(db)
+		G.SetKey(db.ID, db, self.DatabaseDict)
+
+	def AddDbServer(self, dbSvr):
+		# -----------------------------------------
+		self.DbServers.append(dbSvr)
+		G.SetKey(dbSvr.ID, dbSvr, self.DbServerDict)
 
 	# ---------------------------------------------
 	# XML Doc
